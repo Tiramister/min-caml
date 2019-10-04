@@ -178,20 +178,23 @@ let rec g env = function (* K正規化ルーチン本体 (caml2html: knormal_g) 
 
 let f e = fst (g M.empty e)
 
-
+(* return 2n spaces *)
 let rec indent n =
   if (n = 0) then "" else ("  " ^ (indent (n - 1)))
 
 let rec print_knormal expr depth =
+  (* print a variable with its type and indentations *)
   let print_var d (name, ty) =
     (print_endline
        ((indent d)
         ^ name ^ " : " ^ (Type.string_of_type ty))) in
 
+  (* print a function and its arguments *)
   let print_func name exprs =
     (print_endline ((indent depth) ^ name);
      List.iter (fun e -> print_endline ((indent (depth + 1)) ^ e)) exprs) in
 
+  (* print a let statement *)
   let print_let vars e1 e2 =
     (print_endline ((indent depth) ^ "LET");
      List.iter (print_var (depth + 1)) vars;
@@ -200,6 +203,8 @@ let rec print_knormal expr depth =
      print_endline ((indent depth) ^ "IN");
      print_knormal e2 (depth + 1)) in
 
+  (* the types of arguments of LetTuple differs
+     from those of Let and LetRec *)
   let print_lettuple vars e1 e2 =
     (print_endline ((indent depth) ^ "LET");
      List.iter (print_var (depth + 1)) vars;

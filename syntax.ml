@@ -26,22 +26,25 @@ type t = (* MinCamlの構文を表現するデータ型 (caml2html: syntax_t) *)
   | Put of t * t * t
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
+(* return 2n spaces *)
 let rec indent n =
   if (n = 0) then "" else ("  " ^ (indent (n - 1)))
-           
+
 let rec print_syntax expr depth =
+  (* print a variable with its type and indentations *)
   let print_var d (name, ty) =
     (print_endline
        ((indent d)
         ^ name ^ " : " ^ (Type.string_of_type ty))) in
-  
+
+  (* print a function and its arguments *)
   let print_func name exprs =
     (print_endline ((indent depth) ^ name);
      List.iter (fun e -> print_syntax e (depth + 1)) exprs) in
-  
+
+  (* print a let statement *)
   let print_let vars e1 e2 =
-    (
-      print_endline ((indent depth) ^ "LET");
+    (print_endline ((indent depth) ^ "LET");
      List.iter (print_var (depth + 1)) vars;
      print_endline ((indent depth) ^ "=");
      print_syntax e1 (depth + 1);
