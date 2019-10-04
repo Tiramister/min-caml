@@ -25,3 +25,73 @@ type t = (* MinCamlの構文を表現するデータ型 (caml2html: syntax_t) *)
   | Get of t * t
   | Put of t * t * t
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
+
+let rec repeat s n =
+  if (n = 0) then "" else (s ^ (repeat s (n - 1)))
+           
+let rec print_syntax expr depth =
+  let print_func name exprs =
+    (print_endline name;
+     List.iter (fun e -> print_syntax e (depth + 1)) exprs) in
+  
+  let print_let vars e1 e2 =
+    (print_endline "LET";
+     List.iter (fun (name, t) ->
+         print_endline ((repeat "\t" (depth + 1)) ^ " " ^ name)) vars;
+     print_endline ((repeat "\t" depth) ^ "=");
+     print_syntax e1 (depth + 1);
+     print_endline ((repeat "\t" depth) ^ "IN");
+     print_syntax e2 (depth + 1)) in
+
+  print_string (repeat "\t" depth);  (* indentation *)
+  match expr with
+  | Unit ->
+     print_endline "UNIT"
+  | Bool b ->
+     print_endline (if b then "TRUE" else "FALSE")
+  | Int n ->
+     print_endline ("INT " ^ (string_of_int n))
+  | Float f ->
+     print_endline ("FLOAT " ^ (string_of_float f))
+  | Not e ->
+     print_func "NOT" [e]
+  | Neg e ->
+     print_func "NEG" [e]
+  | Add (e1, e2) ->
+     print_func "Add" [e1; e2]
+  | Sub (e1, e2) ->
+     print_func "SUB" [e1; e2]
+  | FNeg e ->
+     print_func "FNEG" [e]
+  | FAdd (e1, e2) ->
+     print_func "FADD" [e1; e2]
+  | FSub (e1, e2) ->
+     print_func "FSUB" [e1; e2]
+  | FMul (e1, e2) ->
+     print_func "FMUL" [e1; e2]
+  | FDiv (e1, e2) ->
+     print_func "FDIV" [e1; e2]
+  | Eq (e1, e2) ->
+     print_func "EQ" [e1; e2]
+  | LE (e1, e2) ->
+     print_func "LE" [e1; e2]
+  | If (e1, e2, e3) ->
+     print_func "IF" [e1; e2; e3]
+  | Let (var, e1, e2) ->
+     print_let [var] e1 e2
+  | Var name ->
+     print_endline ("VAR " ^ name)
+  | LetRec (fdef, e) ->
+     print_let [fdef.name] fdef.body e
+  | App (e, es) ->
+     print_func "APP" (e :: es)
+  | Tuple es ->
+     print_func "TUPLE" es
+  | LetTuple (vars, e1, e2) ->
+     print_let vars e1 e2
+  | Array (e1, e2) ->
+     print_func "ARRAY" [e1; e2]
+  | Get (e1, e2) ->
+     print_func "GET" [e1; e2]
+  | Put (e1, e2, e3) ->
+     print_func "PUT" [e1; e2; e3]
