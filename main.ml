@@ -5,15 +5,22 @@ let rec iter n e = (* 最適化処理をくりかえす (caml2html: main_iter) *
   if n = 0 then e else
   let e' = Elim.f (ConstFold.f (Inline.f (Assoc.f (Beta.f e)))) in
   if e = e' then e else
-  iter (n - 1) e'
+    iter (n - 1) e'
+
+let print_debug name func arg =
+  print_endline ("========== " ^ name ^ " ==========");
+  func arg 0;
+  print_endline ("========== " ^ name ^ " ==========");
+  print_newline ()
 
 let lexbuf outchan l = (* バッファをコンパイルしてチャンネルへ出力する (caml2html: main_lexbuf) *)
   Id.counter := 0;
   Typing.extenv := M.empty;
   let parsed = Parser.exp Lexer.token l in
-  (Syntax.print_syntax parsed 0); (* debug *)
+  (print_debug "PARSED" Syntax.print_syntax parsed); (* debug *)
   let typed = Typing.f parsed in
   let normalized = Alpha.f (KNormal.f typed) in
+  (print_debug "NORMALIZED" KNormal.print_knormal normalized); (* debug *)
   let optimized = iter !limit normalized in
   let assembled = RegAlloc.f (Simm.f (Virtual.f (Closure.f optimized))) in
   Emit.f outchan assembled
