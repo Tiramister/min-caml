@@ -51,6 +51,11 @@ test/%.ans: test/%.ml
 test/%.cmp: test/%.res test/%.ans
 	diff $^ > $@
 
+# alias to compile assembly codes
+# make comp asm=hoge
+comp: ./min-caml
+	$(CC) $(CFLAGS) -m32 ${asm}.s libmincaml.S stub.c -lm -o ${asm}
+
 min-caml.html: main.mli main.ml id.ml m.ml s.ml \
 		syntax.ml type.ml parser.mly lexer.mll typing.mli typing.ml kNormal.mli kNormal.ml \
 		alpha.mli alpha.ml beta.mli beta.ml assoc.mli assoc.ml \
