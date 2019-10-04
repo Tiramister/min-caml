@@ -11,6 +11,7 @@ let lexbuf outchan l = (* バッファをコンパイルしてチャンネルへ
   Id.counter := 0;
   Typing.extenv := M.empty;
   let parsed = Parser.exp Lexer.token l in
+  (Syntax.print_syntax parsed 0); (* debug *)
   let typed = Typing.f parsed in
   let normalized = Alpha.f (KNormal.f typed) in
   let optimized = iter !limit normalized in

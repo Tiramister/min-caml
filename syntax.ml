@@ -26,8 +26,8 @@ type t = (* MinCamlの構文を表現するデータ型 (caml2html: syntax_t) *)
   | Put of t * t * t
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
-let rec repeat s n =
-  if (n = 0) then "" else (s ^ (repeat s (n - 1)))
+let rec indent n =
+  if (n = 0) then "" else ("  " ^ (indent (n - 1)))
            
 let rec print_syntax expr depth =
   let print_func name exprs =
@@ -37,13 +37,13 @@ let rec print_syntax expr depth =
   let print_let vars e1 e2 =
     (print_endline "LET";
      List.iter (fun (name, t) ->
-         print_endline ((repeat "\t" (depth + 1)) ^ " " ^ name)) vars;
-     print_endline ((repeat "\t" depth) ^ "=");
+         print_endline ((indent (depth + 1)) ^ name)) vars;
+     print_endline ((indent depth) ^ "=");
      print_syntax e1 (depth + 1);
-     print_endline ((repeat "\t" depth) ^ "IN");
+     print_endline ((indent depth) ^ "IN");
      print_syntax e2 (depth + 1)) in
 
-  print_string (repeat "\t" depth);  (* indentation *)
+  print_string (indent depth);  (* indentation *)
   match expr with
   | Unit ->
      print_endline "UNIT"
@@ -58,7 +58,7 @@ let rec print_syntax expr depth =
   | Neg e ->
      print_func "NEG" [e]
   | Add (e1, e2) ->
-     print_func "Add" [e1; e2]
+     print_func "ADD" [e1; e2]
   | Sub (e1, e2) ->
      print_func "SUB" [e1; e2]
   | FNeg e ->
