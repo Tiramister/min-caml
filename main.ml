@@ -10,16 +10,12 @@ let rec iter n e = (* 最適化処理をくりかえす (caml2html: main_iter) *
 let lexbuf outchan l = (* バッファをコンパイルしてチャンネルへ出力する (caml2html: main_lexbuf) *)
   Id.counter := 0;
   Typing.extenv := M.empty;
-  Emit.f outchan
-    (RegAlloc.f
-       (Simm.f
-          (Virtual.f
-             (Closure.f
-                (iter !limit
-                   (Alpha.f
-                      (KNormal.f
-                         (Typing.f
-                            (Parser.exp Lexer.token l)))))))))
+  let parsed = Parser.exp Lexer.token l in
+  let typed = Typing.f parsed in
+  let normalized = Alpha.f (KNormal.f typed) in
+  let optimized = iter !limit normalized in
+  let assembled = RegAlloc.f (Simm.f (Virtual.f (Closure.f optimized))) in
+  Emit.f outchan assembled
 
 let string s = lexbuf stdout (Lexing.from_string s) (* 文字列をコンパイルして標準出力に表示する (caml2html: main_string) *)
 
