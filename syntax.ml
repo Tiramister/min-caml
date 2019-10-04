@@ -30,29 +30,33 @@ let rec indent n =
   if (n = 0) then "" else ("  " ^ (indent (n - 1)))
            
 let rec print_syntax expr depth =
+  let print_var d (name, ty) =
+    (print_endline
+       ((indent d)
+        ^ name ^ " : " ^ (Type.string_of_type ty))) in
+  
   let print_func name exprs =
-    (print_endline name;
+    (print_endline ((indent depth) ^ name);
      List.iter (fun e -> print_syntax e (depth + 1)) exprs) in
   
   let print_let vars e1 e2 =
-    (print_endline "LET";
-     List.iter (fun (name, t) ->
-         print_endline ((indent (depth + 1)) ^ name)) vars;
+    (
+      print_endline ((indent depth) ^ "LET");
+     List.iter (print_var (depth + 1)) vars;
      print_endline ((indent depth) ^ "=");
      print_syntax e1 (depth + 1);
      print_endline ((indent depth) ^ "IN");
      print_syntax e2 (depth + 1)) in
 
-  print_string (indent depth);  (* indentation *)
   match expr with
   | Unit ->
-     print_endline "UNIT"
+     print_func "UNIT" []
   | Bool b ->
-     print_endline (if b then "TRUE" else "FALSE")
+     print_func (if b then "TRUE" else "FALSE") []
   | Int n ->
-     print_endline ("INT " ^ (string_of_int n))
+     print_func ((string_of_int n) ^ " : INT") []
   | Float f ->
-     print_endline ("FLOAT " ^ (string_of_float f))
+     print_func ((string_of_float f) ^ " : FLOAT") []
   | Not e ->
      print_func "NOT" [e]
   | Neg e ->
@@ -80,7 +84,7 @@ let rec print_syntax expr depth =
   | Let (var, e1, e2) ->
      print_let [var] e1 e2
   | Var name ->
-     print_endline ("VAR " ^ name)
+     print_func ("VAR " ^ name) []
   | LetRec (fdef, e) ->
      print_let [fdef.name] fdef.body e
   | App (e, es) ->
