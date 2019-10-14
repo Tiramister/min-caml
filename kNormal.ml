@@ -26,6 +26,41 @@ type t = (* K正規化後の式 (caml2html: knormal_t) *)
   | ExtFunApp of Id.t * Id.t list
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
+let rec same_expr expr1 expr2 =
+  match (expr1, expr2) with
+  (* require recursive calls *)
+  | (IfEq (x1, y1, e1, f1), IfEq (x2, y2, e2, f2))
+    -> x1 = x2
+       && y1 = y2
+       && (same_expr e1 e2)
+       && (same_expr f1 f2)
+  | (IfLE (x1, y1, e1, f1), IfLE (x2, y2, e2, f2))
+    -> x1 = x2
+       && y1 = y2
+       && (same_expr e1 e2)
+       && (same_expr f1 f2)
+  | (Let (x1, e1, f1), Let (x2, e2, f2))
+    -> x1 = x2
+       && (same_expr e1 e2)
+       && (same_expr f1 f2)
+  | (LetRec (fdef1, e1), LetRec (fdef2, e2))
+    -> fdef1.name = fdef2.name
+       && fdef1.args = fdef2.args
+       && (same_expr fdef1.body fdef2.body)
+       && (same_expr e1 e2)
+  | (LetTuple (xs1, x1, e1), LetTuple (xs2, x2, e2))
+    -> xs1 = xs2
+       && x1 = x2
+       && (same_expr e1 e2)
+  (* side effects *)
+  | (Get _, Get _) -> false
+  | (Put _, Put _) -> false
+  | (ExtArray _, ExtArray _)   -> false
+  | (ExtFunApp _, ExtFunApp _) -> false
+  (* leave the rest to default comparator *)
+  | _ -> expr1 = expr2
+
+
 let rec fv = function (* 式に出現する（自由な）変数 (caml2html: knormal_fv) *)
   | Unit | Int(_) | Float(_) | ExtArray(_) -> S.empty
   | Neg(x) | FNeg(x) -> S.singleton x
