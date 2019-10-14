@@ -17,10 +17,11 @@ let lexbuf outchan l = (* バッファをコンパイルしてチャンネルへ
   Id.counter := 0;
   Typing.extenv := M.empty;
   let parsed = Parser.exp Lexer.token l in
-  (print_debug "PARSED" Syntax.print_syntax parsed); (* debug *)
   let typed = Typing.f parsed in
   let normalized = Alpha.f (KNormal.f typed) in
   (print_debug "NORMALIZED" KNormal.print_knormal normalized); (* debug *)
+  let eliminated = ElimCommon.f normalized in
+  (print_debug "ELIMINATED" KNormal.print_knormal eliminated); (* debug *)
   let optimized = iter !limit normalized in
   let assembled = RegAlloc.f (Simm.f (Virtual.f (Closure.f optimized))) in
   Emit.f outchan assembled
