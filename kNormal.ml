@@ -203,6 +203,16 @@ let rec print_knormal expr depth =
      print_endline ((indent depth) ^ "IN");
      print_knormal e2 (depth + 1)) in
 
+  let print_letrec func args e1 e2 =
+    (print_endline ((indent depth) ^ "LETREC");
+     print_var (depth + 1) func;
+     print_endline ((indent depth) ^ "ARGS:");
+     List.iter (print_var (depth + 1)) args;
+     print_endline ((indent depth) ^ "=");
+     print_knormal e1 (depth + 1);
+     print_endline ((indent depth) ^ "IN");
+     print_knormal e2 (depth + 1)) in
+
   (* the types of arguments of LetTuple differs
      from those of Let and LetRec *)
   let print_lettuple vars e1 e2 =
@@ -249,7 +259,7 @@ let rec print_knormal expr depth =
   | Var name ->
      print_func ("VAR " ^ name) []
   | LetRec (fdef, e) ->
-     print_let [fdef.name] fdef.body e
+     print_letrec fdef.name fdef.args fdef.body e
   | App (e, es) ->
      print_func "APP" (e :: es)
   | Tuple es ->
