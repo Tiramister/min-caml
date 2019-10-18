@@ -104,3 +104,116 @@ let f e =
   toplevel := [];
   let e' = g M.empty S.empty e in
   Prog(List.rev !toplevel, e')
+
+
+(* ========== Debug ========== *)
+let rec print_closure_inner depth expr =
+  (* return 2n spaces *)
+  let rec print depth s =
+    if depth = 0
+    then
+      print_endline s
+    else
+      (print_string "  ";
+       print (depth - 1) s) in
+
+  (* print a variable with its type and indentations *)
+  let print_var depth (name, ty) =
+    print depth (name ^ " : " ^ (Type.string_of_type ty)) in
+
+  (* print a function and its arguments *)
+  let rec print_func name exprs =
+    print depth name;
+    List.iter (print (depth + 1)) exprs in
+
+  let print_if var1 comp var2 et ef =
+    print depth "IF";
+    print (depth + 1) var1;
+    print depth comp;
+    print (depth + 1) var2;
+    print depth "THEN";
+    print_closure_inner (depth + 1) et;
+    print depth "ELSE";
+    print_closure_inner (depth + 1) ef in
+
+  let print_let vars e1 e2 =
+    print depth "LET";
+    List.iter (print_var (depth + 1)) vars;
+    print depth "=";
+    print_closure_inner (depth + 1) e1;
+    print depth "IN";
+    print_closure_inner (depth + 1) e2 in
+
+  let print_makecls var {entry = L(label); actual_fv = fvs} e =
+    print depth "LET";
+    print_var (depth + 1) var;
+    print depth "=";
+    print (depth + 1) ("LABEL = " ^ label);
+    print (depth + 1) ("FVS = " ^
+                         (String.concat ", " fvs));
+    print depth "IN";
+    print_closure_inner (depth + 1) e in
+
+  let print_appdir lb vars =
+    let Id.L(label) = lb in
+    print depth "APP";
+    print (depth + 1) ("LABEL : " ^ label);
+    List.iter (print (depth + 1)) vars in
+  
+  let print_lettuple vars var e =
+    print depth "LET";
+    List.iter (print_var (depth + 1)) vars;
+    print depth "=";
+    print (depth + 1) var;
+    print depth "IN";
+    print_closure_inner (depth + 1) e in
+  
+  match expr with
+  | Unit ->
+     print_func "UNIT" []
+  | Int i ->
+     print_func (string_of_int i) []
+  | Float f ->
+     print_func (string_of_float f) []
+  | Neg e ->
+     print_func "NEG" [e]
+  | Add (e1, e2) ->
+     print_func "ADD" [e1; e2]
+  | Sub (e1, e2) ->
+     print_func "SUB" [e1; e2]
+  | FNeg e ->
+     print_func "FNEG" [e]
+  | FAdd (e1, e2) ->
+     print_func "FADD" [e1; e2]
+  | FSub (e1, e2) ->
+     print_func "FSUB" [e1; e2]
+  | FMul (e1, e2) ->
+     print_func "FMUL" [e1; e2]
+  | FDiv (e1, e2) ->
+     print_func "FDIV" [e1; e2]
+  | IfEq (var1, var2, et, ef) ->
+     print_if var1 "==" var2 et ef
+  | IfLE (var1, var2, et, ef) ->
+     print_if var1 "<" var2 et ef
+  | Let (var, e1, e2) ->
+     print_let [var] e1 e2
+  | Var name ->
+     print_func ("VAR " ^ name) []
+  | MakeCls (var, cls, e) ->
+     print_makecls var cls e
+  | AppCls (e, es) ->
+     print_func "APP" (e :: es)
+  | AppDir (e, es) ->
+     print_appdir e es
+  | Tuple es ->
+     print_func "TUPLE" es
+  | LetTuple (vars, var, e) ->
+     print_lettuple vars var e
+  | Get (e1, e2) ->
+     print_func "GET" [e1; e2]
+  | Put (e1, e2, e3) ->
+     print_func "PUT" [e1; e2; e3]
+  | ExtArray Id.L(label) ->
+     print_func ("ARRAY " ^ label) []
+
+let print_closure (Prog (_, e)) = print_closure_inner 0 e
