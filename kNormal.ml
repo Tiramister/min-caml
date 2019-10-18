@@ -25,7 +25,7 @@ type t = (* K正規化後の式 (caml2html: knormal_t) *)
   | ExtArray of Id.t
   | ExtFunApp of Id.t * Id.t list
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
-
+ 
 let rec same_expr expr1 expr2 =
   match (expr1, expr2) with
   (* require recursive calls *)
@@ -213,58 +213,70 @@ let rec g env = function (* K正規化ルーチン本体 (caml2html: knormal_g) 
 
 let f e = fst (g M.empty e)
 
-(* return 2n spaces *)
-let rec indent n =
-  if (n = 0) then "" else ("  " ^ (indent (n - 1)))
 
-let rec print_knormal expr depth =
+(* ========== Debug ========== *)
+let rec print_knormal_inner depth expr =
+  (* return 2n spaces *)
+  let rec print depth s =
+    if depth = 0
+    then
+      print_endline s
+    else
+      (print_string "  ";
+       print (depth - 1) s) in
+
   (* print a variable with its type and indentations *)
-  let print_var d (name, ty) =
-    (print_endline
-       ((indent d)
-        ^ name ^ " : " ^ (Type.string_of_type ty))) in
+  let print_var depth (name, ty) =
+    print depth (name ^ " : " ^ (Type.string_of_type ty)) in
 
   (* print a function and its arguments *)
-  let print_func name exprs =
-    (print_endline ((indent depth) ^ name);
-     List.iter (fun e -> print_endline ((indent (depth + 1)) ^ e)) exprs) in
+  let rec print_func name exprs =
+    print depth name;
+    List.iter (print (depth + 1)) exprs in
 
-  (* print a let statement *)
+  let print_if var1 comp var2 et ef =
+    print depth "IF";
+    print (depth + 1) var1;
+    print depth comp;
+    print (depth + 1) var2;
+    print depth "THEN";
+    print_knormal_inner (depth + 1) et;
+    print depth "ELSE";
+    print_knormal_inner (depth + 1) ef in
+
   let print_let vars e1 e2 =
-    (print_endline ((indent depth) ^ "LET");
-     List.iter (print_var (depth + 1)) vars;
-     print_endline ((indent depth) ^ "=");
-     print_knormal e1 (depth + 1);
-     print_endline ((indent depth) ^ "IN");
-     print_knormal e2 (depth + 1)) in
+    print depth "LET";
+    List.iter (print_var (depth + 1)) vars;
+    print depth "=";
+    print_knormal_inner (depth + 1) e1;
+    print depth "IN";
+    print_knormal_inner (depth + 1) e2 in
 
-  let print_letrec func args e1 e2 =
-    (print_endline ((indent depth) ^ "LETREC");
-     print_var (depth + 1) func;
-     print_endline ((indent depth) ^ "ARGS:");
-     List.iter (print_var (depth + 1)) args;
-     print_endline ((indent depth) ^ "=");
-     print_knormal e1 (depth + 1);
-     print_endline ((indent depth) ^ "IN");
-     print_knormal e2 (depth + 1)) in
+  let print_letrec fdef e =
+    print depth "LET";
+    print_var (depth + 1) fdef.name;
+    print depth "ARGS";
+    List.iter (print_var (depth + 1)) fdef.args;
+    print depth "=";
+    print_knormal_inner (depth + 1) fdef.body;
+    print depth "IN";
+    print_knormal_inner (depth + 1) e in
 
-  (* the types of arguments of LetTuple differs
-     from those of Let and LetRec *)
-  let print_lettuple vars e1 e2 =
-    (print_endline ((indent depth) ^ "LET");
-     List.iter (print_var (depth + 1)) vars;
-     print_endline ((indent depth) ^ "=");
-     print_endline ((indent (depth + 1)) ^ e1);
-     print_endline ((indent depth) ^ "IN");
-     print_knormal e2 (depth + 1)) in
+  let print_lettuple vars var e =
+    print depth "LET";
+    List.iter (print_var (depth + 1)) vars;
+    print depth "=";
+    print (depth + 1) var;
+    print depth "IN";
+    print_knormal_inner (depth + 1) e in
   
   match expr with
   | Unit ->
      print_func "UNIT" []
-  | Int n ->
-     print_func ((string_of_int n) ^ " : INT") []
+  | Int i ->
+     print_func (string_of_int i) []
   | Float f ->
-     print_func ((string_of_float f) ^ " : FLOAT") []
+     print_func (string_of_float f) []
   | Neg e ->
      print_func "NEG" [e]
   | Add (e1, e2) ->
@@ -281,31 +293,29 @@ let rec print_knormal expr depth =
      print_func "FMUL" [e1; e2]
   | FDiv (e1, e2) ->
      print_func "FDIV" [e1; e2]
-  | IfEq (e1, e2, et, ef) ->
-     (print_func "IFEQ" [e1; e2];
-      print_knormal et (depth + 1);
-      print_knormal ef (depth + 1))
-  | IfLE (e1, e2, et, ef) ->
-     (print_func "IFLE" [e1; e2];
-      print_knormal et (depth + 1);
-      print_knormal ef (depth + 1))
+  | IfEq (var1, var2, et, ef) ->
+     print_if var1 "==" var2 et ef
+  | IfLE (var1, var2, et, ef) ->
+     print_if var1 "<" var2 et ef
   | Let (var, e1, e2) ->
      print_let [var] e1 e2
   | Var name ->
      print_func ("VAR " ^ name) []
   | LetRec (fdef, e) ->
-     print_letrec fdef.name fdef.args fdef.body e
+     print_letrec fdef e
   | App (e, es) ->
      print_func "APP" (e :: es)
   | Tuple es ->
      print_func "TUPLE" es
-  | LetTuple (vars, e1, e2) ->
-     print_lettuple vars e1 e2
+  | LetTuple (vars, var, e) ->
+     print_lettuple vars var e
   | Get (e1, e2) ->
      print_func "GET" [e1; e2]
   | Put (e1, e2, e3) ->
      print_func "PUT" [e1; e2; e3]
-  | ExtArray e ->
-     print_func "EXTARRAY" [e]
-  | ExtFunApp (e, es) ->
-     print_func "EXTFUNAPP" (e :: es)
+  | ExtArray var ->
+     print_func ("ARRAY " ^ var) []
+  | ExtFunApp (f, args) ->
+     print_func "APP" (f :: args)
+
+let print_knormal = print_knormal_inner 0

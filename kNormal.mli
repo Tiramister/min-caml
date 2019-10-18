@@ -27,4 +27,5 @@ and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 val same_expr : t -> t -> bool
 val fv : t -> S.t
 val f : Syntax.t -> t
-val print_knormal : t -> int -> unit
+  
+val print_knormal : t -> unit
