@@ -216,4 +216,21 @@ let rec print_closure_inner depth expr =
   | ExtArray Id.L(label) ->
      print_func ("ARRAY " ^ label) []
 
-let print_closure (Prog (_, e)) = print_closure_inner 0 e
+let print_toplevel fundefs =
+  List.iter
+    (fun {name = (Id.L(label), ty);
+          args = args;
+          formal_fv = fvs;
+          body = e} ->
+      print_endline ("LABEL : " ^ label);
+      print_endline ("TYPE  : " ^ (Type.string_of_type ty));
+      print_endline ("ARGS  : " ^ (String.concat ", " (List.map fst args)));
+      print_endline ("FVS   : " ^ (String.concat ", " (List.map fst fvs)));
+      print_endline ("BODY  : ");
+      print_closure_inner 1 e;
+      print_endline ("------------------------------")
+    ) fundefs
+
+let print_closure (Prog (top, expr)) =
+  print_toplevel top;
+  print_closure_inner 0 expr
