@@ -83,71 +83,168 @@ let rec unify t1 t2 = (* 型が合うように、型変数への代入をする 
 let rec g env e = (* 型推論ルーチン (caml2html: typing_g) *)
   try
     match e with
-    | Unit -> Type.Unit
-    | Bool(_) -> Type.Bool
-    | Int(_) -> Type.Int
-    | Float(_) -> Type.Float
+    | Unit -> Type.Unit, e
+    | Bool(_) -> Type.Bool, e
+    | Int(_) -> Type.Int, e
+    | Float(_) -> Type.Float, e
+
     | Not(e) ->
-        unify Type.Bool (g env e);
-        Type.Bool
+        let t, ne = g env e in
+        unify Type.Bool t;
+        Type.Bool, Not(ne)
+
     | Neg(e) ->
-        unify Type.Int (g env e);
-        Type.Int
-    | Add(e1, e2) | Sub(e1, e2) -> (* 足し算（と引き算）の型推論 (caml2html: typing_add) *)
-        unify Type.Int (g env e1);
-        unify Type.Int (g env e2);
-        Type.Int
+        let t, ne = g env e in
+       (try  (* assume to be int at first *)
+          unify Type.Int t;
+          Type.Int, Neg(ne)
+        with Unify _ ->  (* if failed, assume to be float *)
+          unify Type.Float t;
+          Type.Float, FNeg(ne))
+
+    | Add(e1, e2) ->
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+       (try  (* assume to be int at first *)
+          unify Type.Int t1;
+          unify Type.Int t2;
+          Type.Int, Add(ne1, ne2)
+        with Unify _ ->  (* if failed, assume to be float *)
+          unify Type.Float t1;
+          unify Type.Float t2;
+          Type.Float, FAdd(ne1, ne2))  (* convert into FAdd *)
+
+    | Sub(e1, e2) ->
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+       (try  (* assume to be int at first *)
+          unify Type.Int t1;
+          unify Type.Int t2;
+          Type.Int, Sub(ne1, ne2)
+        with Unify _ ->  (* if failed, assume to be float *)
+          unify Type.Float t1;
+          unify Type.Float t2;
+          Type.Float, FSub(ne1, ne2))  (* convert into FSub *)
+
     | FNeg(e) ->
-        unify Type.Float (g env e);
-        Type.Float
-    | FAdd(e1, e2) | FSub(e1, e2) | FMul(e1, e2) | FDiv(e1, e2) ->
-        unify Type.Float (g env e1);
-        unify Type.Float (g env e2);
-        Type.Float
-    | Eq(e1, e2) | LE(e1, e2) ->
-        unify (g env e1) (g env e2);
-        Type.Bool
+        let t, ne = g env e in
+        unify Type.Float t;
+        Type.Float, FNeg(ne)
+
+    | FAdd(e1, e2) ->
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+        unify Type.Float t1;
+        unify Type.Float t2;
+        Type.Float, FAdd(ne1, ne2)
+
+    | FSub(e1, e2) ->
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+        unify Type.Float t1;
+        unify Type.Float t2;
+        Type.Float, FSub(ne1, ne2)
+
+    | FMul(e1, e2) ->
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+        unify Type.Float t1;
+        unify Type.Float t2;
+        Type.Float, FMul(ne1, ne2)
+        
+    | FDiv(e1, e2) ->
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+        unify Type.Float t1;
+        unify Type.Float t2;
+        Type.Float, FDiv(ne1, ne2)
+
+    | Eq(e1, e2) ->
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+        unify t1 t2;
+        Type.Bool, Eq(ne1, ne2)
+
+    | LE(e1, e2) ->
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+        unify t1 t2;
+        Type.Bool, LE(ne1, ne2)
+
     | If(e1, e2, e3) ->
-        unify (g env e1) Type.Bool;
-        let t2 = g env e2 in
-        let t3 = g env e3 in
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+        let t3, ne3 = g env e3 in
+        unify Type.Bool t1;
         unify t2 t3;
-        t2
+        t2, If(ne1, ne2, ne3)
+
     | Let((x, t), e1, e2) -> (* letの型推論 (caml2html: typing_let) *)
-        unify t (g env e1);
-        g (M.add x t env) e2
-    | Var(x) when M.mem x env -> M.find x env (* 変数の型推論 (caml2html: typing_var) *)
-    | Var(x) when M.mem x !extenv -> M.find x !extenv
-    | Var(x) -> (* 外部変数の型推論 (caml2html: typing_extvar) *)
+        let t1, ne1 = g env e1 in
+        unify t t1;
+        let t2, ne2 = g (M.add x t env) e2 in
+        t2, Let((x, t), ne1, ne2)
+
+    | Var(x) when M.mem x env ->
+        let t = M.find x env in
+        t, Var(x)
+
+    | Var(x) when M.mem x !extenv ->
+        let t = M.find x !extenv in
+        t, Var(x)
+
+    | Var(x) ->
         Format.eprintf "free variable %s assumed as external@." x;
         let t = Type.gentyp () in
         extenv := M.add x t !extenv;
-        t
+        t, Var(x)
+
     | LetRec({ name = (x, t); args = yts; body = e1 }, e2) -> (* let recの型推論 (caml2html: typing_letrec) *)
         let env = M.add x t env in
-        unify t (Type.Fun(List.map snd yts, g (M.add_list yts env) e1));
-        g env e2
+        let t1, ne1 = g (M.add_list yts env) e1 in
+        unify t (Type.Fun(List.map snd yts, t1));
+        let t2, ne2 = g env e2 in
+        t2, LetRec({ name = (x, t); args = yts; body = ne1 }, ne2)
+
     | App(e, es) -> (* 関数適用の型推論 (caml2html: typing_app) *)
-        let t = Type.gentyp () in
-        unify (g env e) (Type.Fun(List.map (g env) es, t));
-        t
-    | Tuple(es) -> Type.Tuple(List.map (g env) es)
+        let nt = Type.gentyp () in
+        let t, ne = g env e in
+        let ts, nes = List.split (List.map (g env) es) in
+        unify t (Type.Fun(ts, nt));
+        nt, App(ne, nes)
+
+    | Tuple(es) ->
+        let ts, nes = List.split (List.map (g env) es) in
+        Type.Tuple(ts), Tuple(nes)
+
     | LetTuple(xts, e1, e2) ->
-        unify (Type.Tuple(List.map snd xts)) (g env e1);
-        g (M.add_list xts env) e2
+        let t1, ne1 = g env e1 in
+        unify (Type.Tuple(List.map snd xts)) t1;
+        let t2, ne2 = g (M.add_list xts env) e2 in
+        t2, LetTuple(xts, ne1, ne2)
+
     | Array(e1, e2) -> (* must be a primitive for "polymorphic" typing *)
-        unify (g env e1) Type.Int;
-        Type.Array(g env e2)
+        let t1, ne1 = g env e1 in
+        unify Type.Int t1;
+        let t2, ne2 = g env e2 in
+        Type.Array(t2), Array(ne1, ne2)
+
     | Get(e1, e2) ->
         let t = Type.gentyp () in
-        unify (Type.Array(t)) (g env e1);
-        unify Type.Int (g env e2);
-        t
+        let t1, ne1 = g env e1 in
+        unify (Type.Array(t)) t1;
+        let t2, ne2 = g env e2 in
+        unify Type.Int t2;
+        t, Get(ne1, ne2)
+
     | Put(e1, e2, e3) ->
-        let t = g env e3 in
-        unify (Type.Array(t)) (g env e1);
-        unify Type.Int (g env e2);
-        Type.Unit
+        let t1, ne1 = g env e1 in
+        let t2, ne2 = g env e2 in
+        let t3, ne3 = g env e3 in
+        unify (Type.Array(t3)) t1;
+        unify Type.Int t2;
+        Type.Unit, Put(ne1, ne2, ne3)
+
   with Unify(t1, t2) -> raise (Error(deref_term e, deref_typ t1, deref_typ t2))
 
 let f e =
@@ -156,8 +253,11 @@ let f e =
   (match deref_typ (g M.empty e) with
   | Type.Unit -> ()
   | _ -> Format.eprintf "warning: final result does not have type unit@.");
-*)
-  (try unify Type.Unit (g M.empty e)
+ *)
+
+  let t, ne = g M.empty e in
+  (try
+     unify Type.Unit t
   with Unify _ -> failwith "top level does not have type unit");
   extenv := M.map deref_typ !extenv;
-  deref_term e
+  deref_term ne
