@@ -9,7 +9,7 @@ let rec iter n e = (* 最適化処理をくりかえす (caml2html: main_iter) *
 
 let print_debug name func arg =
   print_endline ("========== " ^ name ^ " ==========");
-  func arg 0;
+  func arg;
   print_endline ("========== " ^ name ^ " ==========");
   print_newline ()
 
@@ -19,10 +19,9 @@ let lexbuf outchan l = (* バッファをコンパイルしてチャンネルへ
   let parsed = Parser.exp Lexer.token l in
   let typed = Typing.f parsed in
   let normalized = Alpha.f (KNormal.f typed) in
-  (print_debug "NORMALIZED" KNormal.print_knormal normalized); (* debug *)
   let eliminated = ElimCommon.f normalized in
-  (print_debug "ELIMINATED" KNormal.print_knormal eliminated); (* debug *)
-  let optimized = iter !limit normalized in
+  let optimized = iter !limit eliminated in
+  let closured = Closure.f optimized in
   let assembled = RegAlloc.f (Simm.f (Virtual.f (Closure.f optimized))) in
   Emit.f outchan assembled
 
