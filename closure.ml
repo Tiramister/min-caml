@@ -149,14 +149,14 @@ let rec print_closure_inner depth expr =
     print_var (depth + 1) var;
     print depth "=";
     print (depth + 1) ("LABEL = " ^ label);
-    print (depth + 1) ("FVS = " ^
+    print (depth + 1) ("FVS   = " ^
                          (String.concat ", " fvs));
     print depth "IN";
     print_closure_inner (depth + 1) e in
 
   let print_appdir lb vars =
     let Id.L(label) = lb in
-    print depth "APP";
+    print depth "APPDIR";
     print (depth + 1) ("LABEL : " ^ label);
     List.iter (print (depth + 1)) vars in
   
@@ -202,7 +202,7 @@ let rec print_closure_inner depth expr =
   | MakeCls (var, cls, e) ->
      print_makecls var cls e
   | AppCls (e, es) ->
-     print_func "APP" (e :: es)
+     print_func "APPCLS" (e :: es)
   | AppDir (e, es) ->
      print_appdir e es
   | Tuple es ->
