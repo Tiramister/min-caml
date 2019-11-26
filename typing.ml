@@ -94,37 +94,40 @@ let rec g env e = (* 型推論ルーチン (caml2html: typing_g) *)
         Type.Bool, Not(ne)
 
     | Neg(e) ->
-        let t, ne = g env e in
-       (try  (* assume to be int at first *)
-          unify Type.Int t;
-          Type.Int, Neg(ne)
-        with Unify _ ->  (* if failed, assume to be float *)
-          unify Type.Float t;
-          Type.Float, FNeg(ne))
+       let t, ne = g env e in
+       if t == Type.Float then
+         Type.Float, Neg(ne)
+       else
+         (unify Type.Int t;
+          Type.Int, Neg(ne))
 
     | Add(e1, e2) ->
-        let t1, ne1 = g env e1 in
-        let t2, ne2 = g env e2 in
-       (try  (* assume to be int at first *)
-          unify Type.Int t1;
-          unify Type.Int t2;
-          Type.Int, Add(ne1, ne2)
-        with Unify _ ->  (* if failed, assume to be float *)
-          unify Type.Float t1;
+       let t1, ne1 = g env e1 in
+       let t2, ne2 = g env e2 in
+       if t1 == Type.Float || t2 == Type.Float then
+         (* infer as float *)
+         (unify Type.Float t1;
           unify Type.Float t2;
-          Type.Float, FAdd(ne1, ne2))  (* convert into FAdd *)
+          Type.Float, FAdd(ne1, ne2))
+       else
+         (* infer as int *)
+         (unify Type.Int t1;
+          unify Type.Int t2;
+          Type.Int, Add(ne1, ne2))
 
     | Sub(e1, e2) ->
-        let t1, ne1 = g env e1 in
-        let t2, ne2 = g env e2 in
-       (try  (* assume to be int at first *)
-          unify Type.Int t1;
-          unify Type.Int t2;
-          Type.Int, Sub(ne1, ne2)
-        with Unify _ ->  (* if failed, assume to be float *)
-          unify Type.Float t1;
+       let t1, ne1 = g env e1 in
+       let t2, ne2 = g env e2 in
+       if t1 == Type.Float || t2 == Type.Float then
+         (* infer as float *)
+         (unify Type.Float t1;
           unify Type.Float t2;
-          Type.Float, FSub(ne1, ne2))  (* convert into FSub *)
+          Type.Float, FSub(ne1, ne2))
+       else
+         (* infer as int *)
+         (unify Type.Int t1;
+          unify Type.Int t2;
+          Type.Int, Sub(ne1, ne2))
 
     | FNeg(e) ->
         let t, ne = g env e in
@@ -249,12 +252,6 @@ let rec g env e = (* 型推論ルーチン (caml2html: typing_g) *)
 
 let f e =
   extenv := M.empty;
-(*
-  (match deref_typ (g M.empty e) with
-  | Type.Unit -> ()
-  | _ -> Format.eprintf "warning: final result does not have type unit@.");
- *)
-
   let t, ne = g M.empty e in
   (try
      unify Type.Unit t
