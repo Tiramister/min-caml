@@ -17,12 +17,14 @@ let lexbuf outchan l = (* バッファをコンパイルしてチャンネルへ
   Id.counter := 0;
   Typing.extenv := M.empty;
   let parsed = Parser.exp Lexer.token l in
+  print_debug "PARSED" Syntax.print_syntax parsed;
   let typed = Typing.f parsed in
+  print_debug "TYPED" Syntax.print_syntax typed;  
   let normalized = Alpha.f (KNormal.f typed) in
   let eliminated = ElimCommon.f normalized in
   let optimized = iter !limit eliminated in
   let closured = Closure.f optimized in
-  let assembled = RegAlloc.f (Simm.f (Virtual.f (Closure.f optimized))) in
+  let assembled = RegAlloc.f (Simm.f (Virtual.f closured)) in
   Emit.f outchan assembled
 
 let string s = lexbuf stdout (Lexing.from_string s) (* 文字列をコンパイルして標準出力に表示する (caml2html: main_string) *)

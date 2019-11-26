@@ -10,6 +10,10 @@ CFLAGS = -g -O2 -Wall
 OCAMLLDFLAGS=-warn-error -31
 
 default: $(RESULT)
+	make test/plus_poly.res
+	cat test/plus_poly.res
+	@echo ""
+
 $(RESULT): debug-code top
 ## [自分（住井）用の注]
 ## ・OCamlMakefileや古いGNU Makeのバグ(?)で上のような定義が必要(??)
